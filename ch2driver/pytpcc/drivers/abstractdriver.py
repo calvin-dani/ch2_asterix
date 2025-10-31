@@ -25,8 +25,12 @@
 # -----------------------------------------------------------------------
 
 from datetime import datetime
+import logging
 
 import constants
+import re
+
+SL_COMMENT_PATTERN = re.compile(r"--.*\n?")
 
 ## ==============================================
 ## AbstractDriver
@@ -36,33 +40,34 @@ class AbstractDriver(object):
         self.name = name
         self.driver_name = "%sDriver" % self.name.title()
         self.ddl = ddl
-        
+
     def __str__(self):
         return self.driver_name
-    
+
     def makeDefaultConfig(self):
         """This function needs to be implemented by all sub-classes.
         It should return the items that need to be in your implementation's configuration file.
         Each item in the list is a triplet containing: ( <PARAMETER NAME>, <DESCRIPTION>, <DEFAULT VALUE> )
         """
         raise NotImplementedError("%s does not implement makeDefaultConfig" % (self.driver_name))
-    
+
     def loadConfig(self, config):
         """Initialize the driver using the given configuration dict"""
         raise NotImplementedError("%s does not implement loadConfig" % (self.driver_name))
-        
+
     def formatConfig(self, config):
         """Return a formatted version of the config dict that can be used with the --config command line argument"""
-        ret =  "# %s Configuration File\n" % (self.driver_name)
+        ret = "# %s Configuration File\n" % (self.driver_name)
         ret += "# Created %s\n" % (datetime.now())
         ret += "[%s]" % self.name
-        
+
         for name in config.keys():
             desc, default = config[name]
-            if default == None: default = ""
-            ret += "\n\n# %s\n%-20s = %s" % (desc, name, default) 
-        return (ret)
-        
+            if default is None:
+                default = ""
+            ret += "\n\n# %s\n%-20s = %s" % (desc, name, default)
+        return ret
+
     def getOneDoc(self, tableName, fieldValues, generateKey=False):
         if self.schema == constants.CH2_DRIVER_SCHEMA["CH2"]:
             return self.getOneCH2Doc(tableName, fieldValues, generateKey)
@@ -83,22 +88,26 @@ class AbstractDriver(object):
                 v1 = []
                 for olv in v:
                     v1.append(self.genDoc(olv, constants.TABLENAME_ORDERLINE))
-            elif (tableName == constants.TABLENAME_ITEM and columns[l] == "i_categories" or
-                  tableName == constants.TABLENAME_CUSTOMER and columns[l] == "c_item_categories"):
+            elif (
+                tableName == constants.TABLENAME_ITEM
+                and columns[l] == "i_categories"
+                or tableName == constants.TABLENAME_CUSTOMER
+                and columns[l] == "c_item_categories"
+            ):
                 continue
             elif tableName == constants.TABLENAME_CUSTOMER and columns[l] == "c_extra":
                 for i in range(0, self.customerExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_ORDERS and columns[l] == "o_extra":
                 for i in range(0, self.ordersExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_ITEM and columns[l] == "i_extra":
                 for i in range(0, self.itemExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
-            elif isinstance(v1,(datetime)):
+            elif isinstance(v1, (datetime)):
                 v1 = str(v1)
             val[columns[l]] = v1
 
@@ -112,15 +121,18 @@ class AbstractDriver(object):
         val = {}
         for l, v in enumerate(fieldValues):
             v1 = fieldValues[l]
-            if isinstance(v1,(datetime)):
+            if isinstance(v1, (datetime)):
                 v1 = str(v1)
             elif tableName == constants.TABLENAME_ORDERS and columns[l] == "o_orderline":
                 v1 = []
                 for olv in v:
                     v1.append(self.genDoc(olv, constants.TABLENAME_ORDERLINE))
-            elif (self.schema == constants.CH2_DRIVER_SCHEMA["CH2P"] and
-                  (tableName == constants.TABLENAME_ITEM and columns[l] == "i_categories" or
-                   tableName == constants.TABLENAME_CUSTOMER and columns[l] == "c_item_categories")):
+            elif self.schema == constants.CH2_DRIVER_SCHEMA["CH2P"] and (
+                tableName == constants.TABLENAME_ITEM
+                and columns[l] == "i_categories"
+                or tableName == constants.TABLENAME_CUSTOMER
+                and columns[l] == "c_item_categories"
+            ):
                 continue
             elif tableName == constants.TABLENAME_WAREHOUSE and columns[l] == "w_address":
                 v1 = self.genDoc(v, constants.TABLENAME_WAREHOUSE_ADDRESS)
@@ -133,27 +145,27 @@ class AbstractDriver(object):
                     v1 = self.genDoc(v, constants.TABLENAME_CUSTOMER_NAME)
                 elif columns[l] == "c_extra":
                     for i in range(0, self.customerExtraFields):
-                        val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                        val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                     continue
                 elif columns[l] == "c_addresses":
                     v1 = []
                     for clv in v:
                         v1.append(self.genDoc(clv, constants.TABLENAME_CUSTOMER_ADDRESSES))
                         if self.schema == constants.CH2_DRIVER_SCHEMA["CH2P"]:
-                            break # Load only one customer address for CH2P
+                            break  # Load only one customer address for CH2P
                 elif columns[l] == "c_phones":
                     v1 = []
                     for clv in v:
                         v1.append(self.genDoc(clv, constants.TABLENAME_CUSTOMER_PHONES))
                         if self.schema == constants.CH2_DRIVER_SCHEMA["CH2P"]:
-                            break # Load only one customer phone for CH2P
+                            break  # Load only one customer phone for CH2P
             elif tableName == constants.TABLENAME_ORDERS and columns[l] == "o_extra":
                 for i in range(0, self.ordersExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_ITEM and columns[l] == "i_extra":
                 for i in range(0, self.itemExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             val[columns[l]] = v1
         return key, val
@@ -166,7 +178,7 @@ class AbstractDriver(object):
         val = {}
         for l, v in enumerate(fieldValues):
             v1 = fieldValues[l]
-            if isinstance(v1,(datetime)):
+            if isinstance(v1, (datetime)):
                 v1 = str(v1)
             elif tableName == constants.TABLENAME_ORDERS and columns[l] == "o_orderline":
                 continue
@@ -185,24 +197,28 @@ class AbstractDriver(object):
                     continue
                 elif columns[l] == "c_extra":
                     for i in range(0, self.customerExtraFields):
-                        val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                        val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                     continue
-                elif columns[l] == "c_addresses" or columns[l] == "c_phones" or columns[l] == "c_item_categories":
+                elif (
+                    columns[l] == "c_addresses"
+                    or columns[l] == "c_phones"
+                    or columns[l] == "c_item_categories"
+                ):
                     continue
             elif tableName == constants.TABLENAME_ORDERS and columns[l] == "o_extra":
                 for i in range(0, self.ordersExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_ITEM and columns[l] == "i_extra":
                 for i in range(0, self.itemExtraFields):
-                    val[columns[l]+"_"+str(format(i+1, "03d"))] = v1[i]
+                    val[columns[l] + "_" + str(format(i + 1, "03d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_STOCK and columns[l] == "s_dists":
                 for i in range(0, 10):
-                    val[columns[l][:-1]+"_"+str(format(i+1, "02d"))] = v1[i]
+                    val[columns[l][:-1] + "_" + str(format(i + 1, "02d"))] = v1[i]
                 continue
             elif tableName == constants.TABLENAME_ITEM and columns[l] == "i_categories":
-                  continue
+                continue
             val[columns[l]] = v1
         return key, val
 
@@ -213,7 +229,7 @@ class AbstractDriver(object):
             columns = constants.CH2PP_TABLE_COLUMNS[tableName]
         rval = rval or {}
         for l, v in enumerate(fieldValues):
-            if isinstance(v,(datetime)):
+            if isinstance(v, (datetime)):
                 v = str(v)
             rval[columns[l]] = v
         return rval
@@ -224,7 +240,7 @@ class AbstractDriver(object):
     def loadStart(self):
         """Optional callback to indicate to the driver that the data loading phase is about to begin."""
         return None
-        
+
     def loadFinish(self):
         """Optional callback to indicate to the driver that the data loading phase is finished."""
         return None
@@ -236,23 +252,23 @@ class AbstractDriver(object):
     def loadFinishWarehouse(self, w_id):
         """Optional callback to indicate to the driver that the data for the given warehouse is finished."""
         return None
-        
+
     def loadFinishDistrict(self, w_id, d_id):
         """Optional callback to indicate to the driver that the data for the given district is finished."""
         return None
-        
+
     def loadTuples(self, tableName, tuples):
         """Load a list of tuples into the target table"""
         raise NotImplementedError("%s does not implement loadTuples" % (self.driver_name))
-        
+
     def executeStart(self):
         """Optional callback before the execution phase starts"""
         return None
-        
+
     def executeFinish(self):
         """Callback after the execution phase finishes"""
         return None
-        
+
     def executeTransaction(self, txn, params, duration, endBenchmarkTime, queryIterNum):
         """Execute a transaction based on the given name"""
         if constants.TransactionTypes.DELIVERY == txn:
@@ -270,7 +286,7 @@ class AbstractDriver(object):
         else:
             assert False, "Unexpected TransactionType: " + txn
         return result, self.txStatus()
-        
+
     def doDelivery(self, params):
         """Execute DELIVERY Transaction
         Parameters Dict:
@@ -279,7 +295,7 @@ class AbstractDriver(object):
             ol_delivery_d
         """
         raise NotImplementedError("%s does not implement doDelivery" % (self.driver_name))
-    
+
     def doNewOrder(self, params):
         """Execute NEW_ORDER Transaction
         Parameters Dict:
@@ -325,4 +341,30 @@ class AbstractDriver(object):
             threshold
         """
         raise NotImplementedError("%s does not implement doStockLevel" % (self.driver_name))
+
+    def loadAnalyticalQueriesFromFile(self, database: str) -> dict[str, str]:
+        filename = "ch2" if self.schema == constants.CH2_DRIVER_SCHEMA["CH2"] else "ch2pp"
+        if (
+            self.analyticalQueries
+            == constants.CH2_DRIVER_ANALYTICAL_QUERIES["NON_OPTIMIZED_QUERIES"]
+        ):
+            filename += "_non_optimized"
+
+        filepath = f"analytical_queries/{database}/{filename}.sql"
+        logging.info(f"Loading analytical queries from {filepath}...")
+
+        queries = {}
+        with open(filepath, "r") as query_file:
+            raw = query_file.read()
+            statements = re.sub(r"\s+", " ", SL_COMMENT_PATTERN.sub("", raw)).split(";")
+            i = 1
+            for query in statements:
+                if query := query.strip():
+                    queries[f"Q{i:02d}"] = query
+                    i += 1
+
+        logging.info(f"Loaded {len(queries)} analytical queries from {filepath}.")
+        assert len(queries) > 0, f"No analytical queries found in {filepath}."
+        return queries
+
 ## CLASS

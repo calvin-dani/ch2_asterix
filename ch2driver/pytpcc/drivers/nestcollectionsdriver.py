@@ -1050,26 +1050,8 @@ class NestcollectionsDriver(AbstractDriver):
         logging.info("Extra request params: %s" % json.dumps(request_params))
 
         if self.TAFlag == "A":
-            # ch2_queries_perm = list(constants.CH2_QUERIES.keys())
-            # Pick a good seed based on client_id and query iteration number
-            # to guarantee repeatibility of order between runs but still
-            # good randomness for different clients and different query iterations.
-            #random.seed(self.client_id*9973 + queryIterNum*19997)
-            #random.shuffle(ch2_queries_perm)
-            #logging.info(f"{self.schema=}")
-            #logging.info(f"{self.analyticalQueries=}")
-
             ch2_queries_perm = constants.CH2_QUERIES_PERM[self.client_id]
-            if self.schema == constants.CH2_DRIVER_SCHEMA["CH2"]:
-                if self.analyticalQueries == constants.CH2_DRIVER_ANALYTICAL_QUERIES["HAND_OPTIMIZED_QUERIES"]:
-                    ch2_queries = constants.CH2_QUERIES
-                else:
-                    ch2_queries = constants.CH2_QUERIES_NON_OPTIMIZED
-            else:
-                if self.analyticalQueries == constants.CH2_DRIVER_ANALYTICAL_QUERIES["HAND_OPTIMIZED_QUERIES"]:
-                    ch2_queries = constants.CH2PP_QUERIES
-                else:
-                    ch2_queries = constants.CH2PP_QUERIES_NON_OPTIMIZED
+            ch2_queries = self.loadAnalyticalQueriesFromFile("couchbase")
 
             if bool(int(os.environ.get("IGNORE_SKIP_INDEX_HINTS", 0))):
                 pattern = re.compile(r"\/\*\+\sskip-index\s\*\/")

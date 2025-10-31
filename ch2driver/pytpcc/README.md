@@ -104,4 +104,4 @@ For more in-depth information on running the benchmark yourself, see [`BENCHMARK
 For the Couchbase driver (`nestcollections`):
 
 - Transaction statements are defined in [`./drivers/nestcollectionsdriver.py`](./drivers/nestcollectionsdriver.py) for both CH2 and CH2++.
-- Analytical queries are defined in [`./constants.py`](./constants.py). This includes hand-optimized and "naive" versions of all 22 queries for both CH2 and CH2++.
+- Analytical queries are found under [`./analytical_queries/couchbase/`](./analytical_queries/couchbase/). There are both hand-optimized and "naive" versions of all 22 queries for both CH2 and CH2++.

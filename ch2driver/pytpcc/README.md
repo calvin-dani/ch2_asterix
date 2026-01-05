@@ -105,3 +105,30 @@ For the Couchbase driver (`nestcollections`):
 
 - Transaction statements are defined in [`./drivers/nestcollectionsdriver.py`](./drivers/nestcollectionsdriver.py) for both CH2 and CH2++.
 - Analytical queries are found under [`./analytical_queries/couchbase/`](./analytical_queries/couchbase/). There are both hand-optimized and "naive" versions of all 22 queries for both CH2 and CH2++.
+
+## Raw Data Generation
+
+The `nestcollectionsdocgen` driver can be used to generate CH2++ datasets as JSON files.
+
+Example:
+```[bash]
+python ./tpcc.py nestcollectionsdocgen \
+    --warehouses 10 \
+    --tclients 4 \
+    --no-execute \
+    --docgen-load \
+    --ch2pp \
+    --bulkload-batch-size 128000000 \
+    --customerExtraFields 64 \
+    --ordersExtraFields 64 \
+    --itemExtraFields 64
+```
+
+This will generate a 10 warehouse CH2++64 dataset with 4 clients at the default output directory `/tmp/ch2_data`, with a maximum file size of 128MB (specified with `--bulkload-batch-size`).
+
+To change the output directory, create a file `docgen.config` and specify the `output_dir` property for the driver:
+```[ini]
+[nestcollectionsdocgen]
+output_dir = <path>
+```
+Then supply `--config <path to docgen.config>` when running `tpcc.py`.

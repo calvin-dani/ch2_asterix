@@ -1085,11 +1085,19 @@ class NestcollectionsDriver(AbstractDriver):
                         break
 
                 logging.info("%s ended at:   %s" % (query_id_str, endTime))
+                logging.info("%s metrics:    %s" % (query_id_str, body.get("metrics")))
                 logging.info(
                     "%s plans:\n%s"
                     % (query_id_str, body.get("plans", {}).get("optimizedLogicalPlan"))
                 )
-                logging.info("%s metrics:    %s" % (query_id_str, body.get("metrics")))
+                logging.info(
+                    "%s errors:\n%s"
+                    % (query_id_str, json.dumps(body.get("errors", [])))
+                )
+                logging.info(
+                    "%s warnings:\n%s"
+                    % (query_id_str, json.dumps(body.get("warnings", [])))
+                )
 
                 qry_times[qry] = [
                     self.client_id + 1,

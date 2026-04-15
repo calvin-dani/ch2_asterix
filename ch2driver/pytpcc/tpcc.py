@@ -298,6 +298,8 @@ if __name__ == '__main__':
 
     aparser.add_argument('--docgen-load', action='store_true',
                          help='Enable storing the data locally in JSON files')
+    aparser.add_argument('--asterix-http-insert', action='store_true',
+                         help='Asterix driver: load via HTTP INSERT (requires DDL matching CH2++ JSON)')
     aparser.add_argument('--print-config', action='store_true',
                          help='Print out the default configuration file for the system and exit')
     aparser.add_argument('--debug', action='store_true',
@@ -453,7 +455,14 @@ if __name__ == '__main__':
                 logging.info("Cannot specify multiple types of load")
                 sys.exit(0)
 
-    if not args['no_load'] and args['system'] == "nestcollections":
+    if args.get("asterix_http_insert"):
+        if load_mode == constants.CH2_DRIVER_LOAD_MODE["NOT_SET"]:
+            load_mode = constants.CH2_DRIVER_LOAD_MODE["ASTERIX_HTTP_INSERT"]
+        else:
+            logging.info("Cannot specify multiple types of load")
+            sys.exit(0)
+
+    if not args['no_load'] and args['system'] in ("nestcollections", "asterix"):
        if load_mode == constants.CH2_DRIVER_LOAD_MODE["NOT_SET"]:
             logging.info("Need to specify the type of load")
             sys.exit(0)

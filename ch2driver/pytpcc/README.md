@@ -27,6 +27,10 @@ Install Python module dependencies:
 python -m pip install -r requirements.txt
 ```
 
+### Apache AsterixDB
+
+To run CH2++ against AsterixDB (SQL++ over HTTP), use the `asterix` driver and follow [`ASTERIX.md`](./ASTERIX.md). DDL templates and a small DDL loader script live under [`ddl/asterix/`](./ddl/asterix/) and [`scripts/asterix/`](./scripts/asterix/).
+
 ***
 
 ## Cluster Setup (Couchbase Capella)

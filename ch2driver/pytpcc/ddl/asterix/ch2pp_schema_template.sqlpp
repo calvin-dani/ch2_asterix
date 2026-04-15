@@ -1,0 +1,22 @@
+-- Template: replace ___DATAVERSE___ and paths before running.
+-- Align OPEN/closed types with JSON from nestcollectionsdocgen (--ch2pp).
+
+-- DROP DATAVERSE ___DATAVERSE___ IF EXISTS;
+-- CREATE DATAVERSE ___DATAVERSE___;
+-- USE ___DATAVERSE___;
+
+-- Example placeholder: define datasets matching collection names in constants.COLLECTIONS_DICT.
+-- You must expand types to include nested fields (c_name, c_addresses, o_orderline, s_dists, …).
+
+/*
+CREATE TYPE ItemType AS { i_id: bigint };
+CREATE DATASET item(ItemType) PRIMARY KEY i_id;
+
+CREATE TYPE WarehouseType AS { w_id: bigint };
+CREATE DATASET warehouse(WarehouseType) PRIMARY KEY w_id;
+
+-- ... repeat for district, customer, stock, orders, neworder, history, supplier, nation, region
+
+-- After JSON files exist on NC hosts:
+-- LOAD DATASET customer USING localfs ((\"path\"=\"127.0.0.1:///path/to/ch2_data/customer/...\"), (\"format\"=\"json\"));
+*/

@@ -1,0 +1,30 @@
+-- Example LOAD DATASET statements after JSON files exist on the Asterix NC host.
+-- Replace __OUTPUT_DIR__ with the absolute path visible to the cluster (e.g. /tmp/ch2_data).
+-- One JSON object per line; paths follow nestcollectionsdocgen layout:
+--   __OUTPUT_DIR__/item/item-0-0.json, etc.
+
+USE bench;
+
+-- LOAD DATASET item USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/item"), ("format"="json"));
+-- LOAD DATASET warehouse USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/warehouse"), ("format"="json"));
+-- LOAD DATASET district USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/district"), ("format"="json"));
+-- LOAD DATASET customer USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/customer"), ("format"="json"));
+-- LOAD DATASET stock USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/stock"), ("format"="json"));
+-- LOAD DATASET orders USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/orders"), ("format"="json"));
+-- LOAD DATASET neworder USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/neworder"), ("format"="json"));
+-- LOAD DATASET history USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/history"), ("format"="json"));
+-- LOAD DATASET supplier USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/supplier"), ("format"="json"));
+-- LOAD DATASET nation USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/nation"), ("format"="json"));
+-- LOAD DATASET region USING localfs (("path"="127.0.0.1:///__OUTPUT_DIR__/region"), ("format"="json"));
+
+ANALYZE DATASET item;
+ANALYZE DATASET warehouse;
+ANALYZE DATASET district;
+ANALYZE DATASET customer;
+ANALYZE DATASET stock;
+ANALYZE DATASET orders;
+ANALYZE DATASET neworder;
+ANALYZE DATASET history;
+ANALYZE DATASET supplier;
+ANALYZE DATASET nation;
+ANALYZE DATASET region;

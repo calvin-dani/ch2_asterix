@@ -116,8 +116,7 @@ class NestcollectionsdocgenDriver(AbstractDriver):
         batch_idx, cur_batch, batch_size = self.batches.get(tableName, [0, [], 0])
         # For bulk load: load in batches
         for t in tuples:
-            key, val = self.getOneDoc(tableName, t, generateKey=True)
-            val["key"] = key
+            _, val = self.getOneDoc(tableName, t, generateKey=True)
             json_val = ujson.dumps(val) + "\n"
             cur_batch.append(json_val)
             batch_size += len(json_val)

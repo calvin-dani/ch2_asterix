@@ -74,7 +74,7 @@ WHERE
   AND EXISTS (
     SELECT VALUE 1
     FROM o.o_orderline ol
-    WHERE ol.ol_delivery_d >= date_add_str(o.o_entry_d, 1, 'week')
+    WHERE datetime(ol.ol_delivery_d) >= datetime(o.o_entry_d) + duration("P7D")
   )
 GROUP BY o.o_ol_cnt
 ORDER BY o.o_ol_cnt;
@@ -120,7 +120,7 @@ WHERE
 SELECT
   su.su_nationkey AS supp_nation,
   substr1(ca.c_state, 1, 1) AS cust_nation,
-  date_part_str(o.o_entry_d, 'year') AS l_year,
+  get_year(datetime(o.o_entry_d)) AS l_year,
   round(sum(ol.ol_amount), 2) AS revenue
 FROM
   supplier su,
@@ -152,12 +152,12 @@ WHERE
     )
   )
   AND ol.ol_delivery_d BETWEEN '2017-01-01 00:00:00.000000' AND '2018-12-31 00:00:00.000000'
-GROUP BY su.su_nationkey, substr1(ca.c_state, 1, 1), date_part_str(o.o_entry_d, 'year')
+GROUP BY su.su_nationkey, substr1(ca.c_state, 1, 1), get_year(datetime(o.o_entry_d))
 ORDER BY su.su_nationkey, cust_nation, l_year;
 
 --Q08
 SELECT
-  date_part_str(o.o_entry_d, 'year') AS l_year,
+  get_year(datetime(o.o_entry_d)) AS l_year,
   round(
     (
       sum(
@@ -195,13 +195,13 @@ WHERE
   AND '2018-12-31 00:00:00.000000'
   AND i.i_data LIKE '%b'
   AND i.i_id = ol.ol_i_id
-GROUP BY date_part_str(o.o_entry_d, 'year')
+GROUP BY get_year(datetime(o.o_entry_d))
 ORDER BY l_year;
 
 --Q09
 SELECT
   n.n_name,
-  date_part_str(o.o_entry_d, 'year') AS l_year,
+  get_year(datetime(o.o_entry_d)) AS l_year,
   sum(ol.ol_amount) AS sum_profit
 FROM item i, stock s, supplier su, orders o, o.o_orderline ol, nation n
 WHERE
@@ -211,7 +211,7 @@ WHERE
   AND ol.ol_i_id = i.i_id
   AND su.su_nationkey = n.n_nationkey
   AND i.i_data LIKE '%bb'
-GROUP BY n.n_name, date_part_str(o.o_entry_d, 'year')
+GROUP BY n.n_name, get_year(datetime(o.o_entry_d))
 ORDER BY n.n_name, l_year DESC;
 
 --Q10
@@ -466,7 +466,7 @@ FROM
           o1.o_w_id = s.s_w_id
           AND ol1.ol_i_id = s.s_i_id
           AND s.s_w_id * s.s_i_id % 10000 = su.su_suppkey
-          AND ol1.ol_delivery_d > date_add_str(o1.o_entry_d, 150, 'day')
+          AND datetime(ol1.ol_delivery_d) > datetime(o1.o_entry_d) + duration("P150D")
           AND o1.o_entry_d BETWEEN '2017-12-01 00:00:00' AND '2017-12-31 00:00:00'
           AND su.su_nationkey = n.n_nationkey
           AND n.n_name = 'Peru'

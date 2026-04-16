@@ -300,6 +300,22 @@ if __name__ == '__main__':
                          help='Enable storing the data locally in JSON files')
     aparser.add_argument('--asterix-http-insert', action='store_true',
                          help='Asterix driver: load via HTTP INSERT (requires DDL matching CH2++ JSON)')
+    aparser.add_argument('--dataverse', '-D', default=None,
+                         help='Asterix: override [asterix] dataverse in config (must match DDL/load; USE and qualified names)')
+    aparser.add_argument('--asterix-cc-host', default=None, metavar='HOST',
+                         help='Asterix: Cluster Controller hostname (override [asterix] cc_host)')
+    aparser.add_argument('--asterix-cc-port', default=None, type=int, metavar='PORT',
+                         help='Asterix: Cluster Controller HTTP port (override [asterix] cc_port)')
+    aparser.add_argument('--asterix-tls', action=argparse.BooleanOptionalAction, default=None,
+                         help='Asterix: use https for /query/service (override [asterix] use_tls)')
+    aparser.add_argument('--asterix-analytical-subdir', default=None, metavar='NAME',
+                         help='Asterix: subfolder under analytical_queries/ (override analytical_query_subdir)')
+    aparser.add_argument('--asterix-statement-timeout-sec', default=None, metavar='SEC',
+                         help='Asterix: per-statement HTTP timeout in seconds; empty string clears (override statement_timeout_sec)')
+    aparser.add_argument('--asterix-output-dir', default=None, metavar='DIR',
+                         help='Asterix: --docgen-load JSON directory (override output_dir)')
+    aparser.add_argument('--asterix-join-hint', default=None, metavar='HINT',
+                         help='Asterix: optional join hint for txn SQL (override join_hint)')
     aparser.add_argument('--print-config', action='store_true',
                          help='Print out the default configuration file for the system and exit')
     aparser.add_argument('--debug', action='store_true',
@@ -579,6 +595,23 @@ if __name__ == '__main__':
     config['reset'] = args['reset']
     config['load'] = False
     config['execute'] = False
+    if args['system'] == 'asterix':
+        if args.get('dataverse') and str(args['dataverse']).strip():
+            config['dataverse'] = str(args['dataverse']).strip()
+        if args.get('asterix_cc_host'):
+            config['cc_host'] = str(args['asterix_cc_host'])
+        if args.get('asterix_cc_port') is not None:
+            config['cc_port'] = int(args['asterix_cc_port'])
+        if args.get('asterix_tls') is not None:
+            config['use_tls'] = args['asterix_tls']
+        if args.get('asterix_analytical_subdir'):
+            config['analytical_query_subdir'] = str(args['asterix_analytical_subdir'])
+        if args.get('asterix_statement_timeout_sec') is not None:
+            config['statement_timeout_sec'] = args['asterix_statement_timeout_sec']
+        if args.get('asterix_output_dir'):
+            config['output_dir'] = str(args['asterix_output_dir'])
+        if args.get('asterix_join_hint') is not None:
+            config['join_hint'] = str(args['asterix_join_hint'])
     if config['reset']: logging.info("Reseting database")
     driver.loadConfig(config)
     logging.info("Initializing " + schema +" benchmark using %s" % driver)

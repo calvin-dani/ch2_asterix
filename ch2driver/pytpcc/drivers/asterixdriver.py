@@ -182,8 +182,7 @@ class AsterixDriver(AbstractDriver):
                 tableName, [0, [], 0]
             )
             for t in tuples:
-                key, val = self.getOneDoc(tableName, t, generateKey=True)
-                val["key"] = key
+                _, val = self.getOneDoc(tableName, t, generateKey=True)
                 json_val = ujson.dumps(val) + "\n"
                 cur_batch.append(json_val)
                 batch_size += len(json_val)

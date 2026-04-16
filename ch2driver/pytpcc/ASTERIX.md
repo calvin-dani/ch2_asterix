@@ -16,7 +16,9 @@ python3 -m venv .venv && source .venv/bin/activate && pip install -r requirement
 
 ## Configuration
 
-Create a config file passed with `tpcc.py --config`. A starting point is [`examples/asterix.ini`](./examples/asterix.ini). Example:
+Defaults match [`AsterixDriver` `makeDefaultConfig`](./drivers/asterixdriver.py) (same as [`examples/asterix.ini`](./examples/asterix.ini)), so you can **omit `--config`** and rely on built-in defaults plus optional CLI overrides.
+
+Create a config file passed with `tpcc.py --config` when you prefer an INI. A starting point is [`examples/asterix.ini`](./examples/asterix.ini). Example:
 
 ```ini
 [asterix]
@@ -30,18 +32,26 @@ output_dir = /tmp/ch2_data
 join_hint =
 ```
 
-- **`dataverse`**: Must match the dataverse used in your DDL (`USE dataverse`).
+- **`dataverse`**: Must match the dataverse used in your DDL (`USE dataverse`). The same name can be passed to **`load_ddl.py --dataverse NAME`** (rewrites `bench` in the bundled `.sqlpp` files) and **`generate_load_sqlpp.py --dataverse NAME`** (or `-D NAME`) for generated loads. For the benchmark run, you can pass **`--dataverse NAME`** (or **`-D NAME`**) to `tpcc.py` to override `[asterix] dataverse` in the INI without editing the file.
+- **CLI without INI** (each overrides the corresponding `[asterix]` key when set): **`--asterix-cc-host`**, **`--asterix-cc-port`**, **`--asterix-tls` / `--no-asterix-tls`**, **`--dataverse` / `-D`**, **`--asterix-analytical-subdir`**, **`--asterix-statement-timeout-sec`**, **`--asterix-output-dir`**, **`--asterix-join-hint`**. See `python tpcc.py asterix --help`.
 - **`analytical_query_subdir`**: Subfolder under `analytical_queries/` (defaults to `asterix`).
-- **`output_dir`**: Used with `--docgen-load` (JSON files per collection).
+- **`output_dir`**: Used with `--docgen-load` (JSON files per collection). Each JSON line is the document body from `getOneDoc` only (no separate `key` field); primary keys are the fields in `ddl/asterix/ch2pp_bench.sqlpp` `CREATE DATASET ... PRIMARY KEY`.
 
 ## Load modes
 
 | Flag | Behavior |
 |------|----------|
-| `--docgen-load` | Write CH2++ JSON batches to `output_dir` (same layout as `nestcollectionsdocgen`). Then run `LOAD DATASET` via `scripts/asterix/load_ddl.py` or your own DDL. |
+| `--docgen-load` | Write CH2++ JSON batches to `output_dir` (same layout as `nestcollectionsdocgen`). Then generate `LOAD DATASET` SQL with `scripts/asterix/generate_load_sqlpp.py` and run `scripts/asterix/load_ddl.py`. |
 | `--asterix-http-insert` | Insert each generated document with `INSERT INTO dataset ([...])` over HTTP (slow; requires types that match JSON). |
 
 ## Example commands
+
+**Run without `--config` (defaults + CLI overrides):**
+
+```bash
+python tpcc.py asterix --ch2pp --no-load --asterix-cc-host 192.168.1.10 --dataverse mydv \
+  --tclients 0 --aclients 1 --query-iterations 1
+```
 
 **1. Generate JSON only (no DB):**
 
@@ -49,11 +59,19 @@ join_hint =
 python tpcc.py nestcollectionsdocgen --ch2pp --warehouses 1 --tclients 1 --no-execute --docgen-load
 ```
 
-**2. Load JSON into Asterix** (after editing paths in DDL):
+**2. Load JSON into Asterix** (schema first, then bulk load; `path=` lists every `*.json` shard as `host://absolute_path` URIs, comma-separated—see `ddl/asterix/ch2pp_load_example.sqlpp` for the shape):
 
 ```bash
-python scripts/asterix/load_ddl.py --file ddl/asterix/your_schema.sqlpp --url http://127.0.0.1:19002/query/service
+python scripts/asterix/load_ddl.py --url http://127.0.0.1:19002/query/service --dataverse mydv --file ddl/asterix/ch2pp_bench.sqlpp
+python scripts/asterix/generate_load_sqlpp.py --output-dir /tmp/ch2_data --dataverse mydv --out /tmp/ch2_load.sqlpp
+python scripts/asterix/load_ddl.py --url http://127.0.0.1:19002/query/service --dataverse mydv --file /tmp/ch2_load.sqlpp
 ```
+
+Replace `mydv` with your dataverse name, or omit `--dataverse` / `-D` to use the default name `bench` from the DDL files. `load_ddl.py` also accepts **`--dataverse-from OLD`** (default `bench`) if your `.sqlpp` uses another placeholder to rename.
+
+`load_ddl.py` sends **one statement per HTTP request**; a standalone `USE` does not carry over. The script therefore **prepends a `USE` for the active dataverse to each statement** that must run inside it (after parsing `USE` lines in the file), so `CREATE TYPE` and `LOAD DATASET` always execute in the correct dataverse.
+
+Use the same `--output-dir` as `[asterix] output_dir` in your INI. Set `--nc-host` if the Node Controller hostname for `localfs` is not `127.0.0.1`. If Asterix runs in Docker or on remote hosts, that directory must exist on the **NC** machine that reads `localfs`, not only on your laptop.
 
 **3. Run benchmark (data already loaded):**
 
@@ -74,7 +92,7 @@ python tpcc.py asterix --config asterix.ini --ch2pp --no-load --tclients 4 --acl
 
 ## Analytical queries
 
-Files live in `analytical_queries/asterix/` (`ch2pp.sql` and optional `ch2pp_non_optimized.sql`). They are derived from the Couchbase N1QL versions with mechanical edits (modulo operator, stripped index hints). **Validate** on your AsterixDB version before relying on results.
+Files live in `analytical_queries/asterix/` (`ch2pp.sql` and optional `ch2pp_non_optimized.sql`). They are derived from the Couchbase N1QL versions with mechanical edits (modulo operator, stripped index hints). Year-from-string fields use `get_year(datetime(...))` instead of N1QL `date_part_str`; offsets use `datetime(...) + duration("PnD")` instead of `date_add_str`. **Validate** on your AsterixDB version before relying on results.
 
 ## Environment
 

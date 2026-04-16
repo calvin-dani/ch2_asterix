@@ -1,5 +1,6 @@
 -- CH2++ schema for AsterixDB (bench dataverse).
 -- Matches JSON from nestcollectionsdocgen / AsterixDriver loadTuples.
+-- `T?` = nullable T (allows JSON null / MISSING where applicable).
 -- Revise datetime vs string fields if your Asterix version requires explicit datetime() casts on load.
 
 DROP DATAVERSE bench IF EXISTS;
@@ -60,11 +61,11 @@ CREATE TYPE CustomerPhoneType AS {
   c_phone_number: string
 };
 
-CREATE TYPE OrderlineType AS closed {
+CREATE TYPE OrderlineType AS {
   ol_number: bigint,
   ol_i_id: bigint,
   ol_supply_w_id: bigint,
-  ol_delivery_d: string,
+  ol_delivery_d: string?,
   ol_quantity: bigint,
   ol_amount: double,
   ol_dist_info: string
@@ -181,4 +182,4 @@ CREATE INDEX idx_stock_qty ON stock(s_quantity: bigint);
 
 -- Optional nested indexes (enable if your Asterix build supports UNNEST secondary indexes):
 -- CREATE INDEX idx_orderline_i ON orders(UNNEST o_orderline SELECT ol_i_id: bigint) EXCLUDE UNKNOWN KEY;
--- CREATE INDEX idx_orderline_del ON orders(UNNEST o_orderline SELECT ol_delivery_d: string) EXCLUDE UNKNOWN KEY;
+-- CREATE INDEX idx_orderline_del ON orders(UNNEST o_orderline SELECT ol_delivery_d: string?) EXCLUDE UNKNOWN KEY;

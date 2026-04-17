@@ -47,6 +47,10 @@ from generate_json_dir_load_sqlpp import build_json_dir_load_sqlpp  # noqa: E402
 from generate_load_sqlpp import build_ch2_docgen_load_sqlpp  # noqa: E402
 
 
+def _err(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description="POST DDL then bulk-load JSON (CH2 docgen tree or single flat directory)",
@@ -168,10 +172,10 @@ def main() -> int:
     if run_schema and args.ddl_file:
         ddl_path = args.ddl_file.expanduser().resolve()
         if not ddl_path.is_file():
-            print(f"error: DDL file not found: {ddl_path}", file=sys.stderr)
+            _err(f"error: DDL file not found: {ddl_path}")
             return 1
         ddl_raw = ddl_path.read_text(encoding="utf-8")
-        print(f"Posting DDL from {ddl_path} ...", file=sys.stderr)
+        _err("[1/3] Posting DDL (schema): " + str(ddl_path))
         rc = load_ddl.run_sqlpp_text(
             args.url,
             ddl_raw,
@@ -180,12 +184,18 @@ def main() -> int:
         )
         if rc != 0:
             return rc
+        _err("[1/3] DDL step finished.")
+    elif args.skip_ddl:
+        _err("[1/3] Skipped DDL (--skip-ddl).")
+    elif args.dry_run_all:
+        _err("[1/3] Skipped DDL (dry-run-all).")
 
     dv = args.dataverse.strip() if args.dataverse else ""
     if not dv:
-        print("error: --dataverse (-D) is required for bulk load", file=sys.stderr)
+        _err("error: --dataverse (-D) is required for bulk load")
         return 1
 
+    _err("[2/3] Building bulk-load SQL in memory (no per-file I/O here).")
     try:
         if ch2_mode:
             load_raw = build_ch2_docgen_load_sqlpp(
@@ -206,21 +216,27 @@ def main() -> int:
                 max_uris_per_load=args.max_uris_per_load,
             )
     except (FileNotFoundError, ValueError) as e:
-        print(f"error: {e}", file=sys.stderr)
+        _err(f"error: {e}")
         return 1
 
+    _err("[2/3] Load script ready.")
+
     if args.dry_run or args.dry_run_all:
-        print("--- generated load SQL ---", file=sys.stderr)
+        _err("[3/3] Skipped posting load SQL (--dry-run or --dry-run-all).")
+        _err("--- generated load SQL (stdout below) ---")
         print(load_raw, end="")
         return 0
 
-    print("Posting bulk load ...", file=sys.stderr)
-    return load_ddl.run_sqlpp_text(
+    _err("[3/3] Posting bulk-load SQL to " + args.url)
+    rc = load_ddl.run_sqlpp_text(
         args.url,
         load_raw,
         dataverse=args.dataverse,
         dataverse_from=args.dataverse_from,
     )
+    if rc == 0:
+        _err("[3/3] Bulk-load step finished.")
+    return rc
 
 
 if __name__ == "__main__":

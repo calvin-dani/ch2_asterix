@@ -137,6 +137,13 @@ def main() -> int:
         action="store_true",
         help="Print generated load SQL only; do not POST anything",
     )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=600.0,
+        metavar="SEC",
+        help="Per-statement HTTP timeout for DDL and load POSTs (0 = no limit; default: 600)",
+    )
     args = p.parse_args()
 
     if args.dry_run_all and args.dry_run:
@@ -181,6 +188,7 @@ def main() -> int:
             ddl_raw,
             dataverse=args.dataverse,
             dataverse_from=args.dataverse_from,
+            timeout=None if args.timeout == 0 else args.timeout,
         )
         if rc != 0:
             return rc
@@ -233,6 +241,7 @@ def main() -> int:
         load_raw,
         dataverse=args.dataverse,
         dataverse_from=args.dataverse_from,
+        timeout=None if args.timeout == 0 else args.timeout,
     )
     if rc == 0:
         _err("[3/3] Bulk-load step finished.")

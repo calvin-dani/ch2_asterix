@@ -106,9 +106,10 @@ def _apply_dataverse(raw: str, target: str, source: str) -> str:
     return raw
 
 
-def _post_statement(url: str, statement: str, timeout: float = 600.0):
+def _post_statement(url: str, statement: str, timeout: float | None = 600.0):
     data = urllib.parse.urlencode({"statement": statement}).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
+    # timeout None = wait indefinitely (for very large LOAD/COPY jobs)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
 
@@ -119,7 +120,8 @@ def run_sqlpp_text(
     *,
     dataverse: str = "",
     dataverse_from: str = "bench",
-    timeout: float = 600.0,
+    timeout: float | None = 600.0,
+    preview_chars: int = 240,
 ) -> int:
     """
     Post each statement from a SQL++ script to ``url`` (same rules as the ``--file`` path in main:
@@ -166,6 +168,12 @@ def run_sqlpp_text(
         else:
             to_post = f"USE {active}; {lean}"
 
+        preview = to_post if len(to_post) <= preview_chars else to_post[:preview_chars] + "..."
+        print(
+            f"[posting {n_post + 1}] {preview}",
+            file=sys.stderr,
+            flush=True,
+        )
         try:
             body = _post_statement(url, to_post, timeout=timeout)
         except urllib.error.HTTPError as e:
@@ -174,9 +182,11 @@ def run_sqlpp_text(
             except Exception:
                 err_body = str(e)
             print("HTTP error:", e.code, err_body[:800], file=sys.stderr)
+            print("Statement that failed:\n", to_post, file=sys.stderr)
             return 1
         except Exception as ex:
             print("Request failed:", ex, file=sys.stderr)
+            print("Statement that was loading:\n", to_post, file=sys.stderr)
             return 1
         if body.get("status") != "success":
             print("Statement failed:", to_post[:200], "...", file=sys.stderr)
@@ -219,15 +229,24 @@ def main() -> int:
         metavar="NAME",
         help="Name to replace in the file when --dataverse is set (default: bench)",
     )
+    p.add_argument(
+        "--timeout",
+        type=float,
+        default=600.0,
+        metavar="SEC",
+        help="Per-statement HTTP timeout in seconds (0 = no limit; default: 600)",
+    )
     args = p.parse_args()
 
     with open(args.file, encoding="utf-8") as f:
         raw = f.read()
+    to = None if args.timeout == 0 else args.timeout
     return run_sqlpp_text(
         args.url,
         raw,
         dataverse=args.dataverse,
         dataverse_from=args.dataverse_from,
+        timeout=to,
     )
 
 

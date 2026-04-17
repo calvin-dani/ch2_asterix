@@ -59,7 +59,7 @@ python tpcc.py asterix --ch2pp --no-load --asterix-cc-host 192.168.1.10 --datave
 python tpcc.py nestcollectionsdocgen --ch2pp --warehouses 1 --tclients 1 --no-execute --docgen-load
 ```
 
-**2. Load JSON into Asterix** (schema first, then bulk load; `path=` lists every `*.json` shard as `host://absolute_path` URIs, comma-separated—see `ddl/asterix/ch2pp_load_example.sqlpp` for the shape):
+**2. Load JSON into Asterix** (schema first, then bulk load; one `LOAD`/`COPY` per `*.json` shard file—see `ddl/asterix/ch2pp_load_example.sqlpp`):
 
 ```bash
 python scripts/asterix/load_ddl.py --url http://127.0.0.1:19002/query/service --dataverse mydv --file ddl/asterix/ch2pp_bench.sqlpp
@@ -67,11 +67,11 @@ python scripts/asterix/generate_load_sqlpp.py --output-dir /tmp/ch2_data --datav
 python scripts/asterix/load_ddl.py --url http://127.0.0.1:19002/query/service --dataverse mydv --file /tmp/ch2_load.sqlpp
 ```
 
-**Arbitrary single dataset (flat `*.json` directory):** use `scripts/asterix/generate_json_dir_load_sqlpp.py` to emit one comma-separated bulk load (default: `LOAD DATASET ... USING localfs`; use `--syntax copy` for `COPY ... FROM localfs path ('host://...') with {'format':'json'};` if your cluster uses that form). Optionally split long URI lists with `--max-uris-per-load`. Pass `--nc-host` and paths that exist on the Node Controller for `localfs`. The same `--syntax` flag exists on `generate_load_sqlpp.py` for CH2 multi-dataset loads. Then run `load_ddl.py` on the generated `.sqlpp` as above.
+**Arbitrary single dataset (flat `*.json` directory):** use `scripts/asterix/generate_json_dir_load_sqlpp.py` to emit one `LOAD`/`COPY` per file (default: `LOAD DATASET ... USING localfs`; use `--syntax copy` for `COPY ... FROM localfs path ('host://...') with {'format':'json'};` per file). Pass `--nc-host` and paths that exist on the Node Controller for `localfs`. The same `--syntax` flag exists on `generate_load_sqlpp.py` for CH2 multi-dataset loads. Then run `load_ddl.py` on the generated `.sqlpp` as above.
 
 **DDL + bulk load in one command:** `scripts/asterix/asterix_ddl_and_json_load.py` posts a schema file once (`-D mydv` rewrites the dataverse name from `--dataverse-from`, same as `load_ddl.py`), then posts generated load SQL.
 
-- **CH2++ docgen tree** (same layout as `generate_load_sqlpp.py`: `--output-dir` with `warehouse/`, `customer/`, … subdirs of `*.json`): use `--docgen-dir /tmp/ch2_data` and `--nc-host`. One process replaces the old three commands (DDL + `generate_load_sqlpp.py` + second `load_ddl.py`); you do **not** run a separate command per dataset — the script emits one `LOAD`/`COPY` per dataset that has JSON, then `ANALYZE` each, all in one generated script.
+- **CH2++ docgen tree** (same layout as `generate_load_sqlpp.py`: `--output-dir` with `warehouse/`, `customer/`, … subdirs of `*.json`): use `--docgen-dir /tmp/ch2_data` and `--nc-host`. One process replaces the old three commands (DDL + `generate_load_sqlpp.py` + second `load_ddl.py`); the script emits **one `LOAD`/`COPY` per JSON shard file**, then `ANALYZE` each loaded dataset, all in one generated script.
 
 - **Single flat `*.json` directory:** use `--json-dir` + `--dataset` (same as `generate_json_dir_load_sqlpp.py`).
 

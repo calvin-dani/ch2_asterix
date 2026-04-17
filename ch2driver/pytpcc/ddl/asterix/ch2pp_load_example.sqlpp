@@ -4,9 +4,10 @@
 --   python scripts/asterix/load_ddl.py --url http://127.0.0.1:19002/query/service --dataverse bench --file /tmp/ch2_load.sqlpp
 -- Use -D / --dataverse on both commands to match [asterix] dataverse in your INI.
 --
--- path= is a comma-separated list of fully qualified URIs host://absolute_path (one per shard file).
--- Below: illustrative two-file load for dataset item only.
+-- One LOAD (or COPY) per shard file; each path= holds a single host://absolute_path URI.
+-- Below: two statements for dataset item (two JSON files).
 
 USE bench;
 
-LOAD DATASET item USING localfs (("path"="127.0.0.1:///tmp/ch2_data/item/item-0-0.json,127.0.0.1:///tmp/ch2_data/item/item-0-1.json"), ("format"="json"));
+LOAD DATASET item USING localfs (("path"="127.0.0.1:///tmp/ch2_data/item/item-0-0.json"), ("format"="json"));
+LOAD DATASET item USING localfs (("path"="127.0.0.1:///tmp/ch2_data/item/item-0-1.json"), ("format"="json"));

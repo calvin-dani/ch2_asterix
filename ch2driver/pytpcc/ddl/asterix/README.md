@@ -7,7 +7,7 @@ DDL scripts use the **`.sqlpp`** extension (SQL++ for AsterixDB).
 | File | Purpose |
 |------|---------|
 | [`ch2pp_bench.sqlpp`](ch2pp_bench.sqlpp) | **`DROP`/`CREATE DATAVERSE bench`**, ADM types, **`CREATE DATASET`**, secondary **`CREATE INDEX`**. Run this first. |
-| [`ch2pp_load_example.sqlpp`](ch2pp_load_example.sqlpp) | Minimal **illustrative** `LOAD DATASET` (comma-separated `host://` file URIs). For real loads, use **`scripts/asterix/generate_load_sqlpp.py`** from your docgen tree. |
+| [`ch2pp_load_example.sqlpp`](ch2pp_load_example.sqlpp) | Minimal **illustrative** `LOAD DATASET` (one statement per `host://` shard URI). For real loads, use **`scripts/asterix/generate_load_sqlpp.py`** from your docgen tree. |
 | [`ch2pp_schema_template.sqlpp`](ch2pp_schema_template.sqlpp) | Minimal placeholder (superseded by `ch2pp_bench.sqlpp` for full CH2++). |
 
 ## Workflow

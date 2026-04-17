@@ -113,6 +113,80 @@ def _post_statement(url: str, statement: str, timeout: float = 600.0):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def run_sqlpp_text(
+    url: str,
+    raw: str,
+    *,
+    dataverse: str = "",
+    dataverse_from: str = "bench",
+    timeout: float = 600.0,
+) -> int:
+    """
+    Post each statement from a SQL++ script to ``url`` (same rules as the ``--file`` path in main:
+    strip ``/* */``, optional rewrite via ``--dataverse`` / ``dataverse_from``, split on ``;``,
+    prepend ``USE`` per statement when required). Returns 0 on success, 1 on failure.
+    """
+    raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.DOTALL)
+    if dataverse:
+        raw = _apply_dataverse(raw, dataverse.strip(), dataverse_from.strip())
+
+    class _Ns:
+        pass
+
+    ns = _Ns()
+    ns.dataverse = dataverse
+
+    def _strip_leading_line_comments(block: str) -> str:
+        lines = block.split("\n")
+        while lines and lines[0].strip().startswith("--"):
+            lines.pop(0)
+        return "\n".join(lines).strip()
+
+    parts = [
+        _strip_leading_line_comments(s)
+        for s in _split_statements(raw)
+        if _strip_leading_line_comments(s)
+    ]
+
+    active = _infer_active_dataverse(raw, ns)
+    n_post = 0
+    for stmt in parts:
+        st = stmt.strip()
+        lean = " ".join(st.split())
+
+        use_m = re.match(r"(?i)^USE\s+(\w+)\s*;?\s*$", st)
+        if use_m:
+            active = use_m.group(1)
+            continue
+
+        if re.match(r"(?i)^DROP\s+DATAVERSE", st):
+            to_post = lean
+        elif re.match(r"(?i)^CREATE\s+DATAVERSE", st):
+            to_post = lean
+        else:
+            to_post = f"USE {active}; {lean}"
+
+        try:
+            body = _post_statement(url, to_post, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            try:
+                err_body = e.read().decode("utf-8")
+            except Exception:
+                err_body = str(e)
+            print("HTTP error:", e.code, err_body[:800], file=sys.stderr)
+            return 1
+        except Exception as ex:
+            print("Request failed:", ex, file=sys.stderr)
+            return 1
+        if body.get("status") != "success":
+            print("Statement failed:", to_post[:200], "...", file=sys.stderr)
+            print(body, file=sys.stderr)
+            return 1
+        n_post += 1
+        print("OK", n_post)
+    return 0
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description="Load DDL/SQL++ file into AsterixDB",
@@ -149,61 +223,12 @@ def main() -> int:
 
     with open(args.file, encoding="utf-8") as f:
         raw = f.read()
-    raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.DOTALL)
-    if args.dataverse:
-        raw = _apply_dataverse(raw, args.dataverse.strip(), args.dataverse_from.strip())
-
-    def _strip_leading_line_comments(block: str) -> str:
-        lines = block.split("\n")
-        while lines and lines[0].strip().startswith("--"):
-            lines.pop(0)
-        return "\n".join(lines).strip()
-
-    parts = [
-        _strip_leading_line_comments(s)
-        for s in _split_statements(raw)
-        if _strip_leading_line_comments(s)
-    ]
-
-    # Each HTTP POST is a separate request; USE does not persist. Prepend USE <dv>; to
-    # statements that run inside a dataverse (CREATE TYPE/DATASET/INDEX, LOAD, ANALYZE).
-    active = _infer_active_dataverse(raw, args)
-    n_post = 0
-    for stmt in parts:
-        st = stmt.strip()
-        lean = " ".join(st.split())
-
-        use_m = re.match(r"(?i)^USE\s+(\w+)\s*;?\s*$", st)
-        if use_m:
-            active = use_m.group(1)
-            continue
-
-        if re.match(r"(?i)^DROP\s+DATAVERSE", st):
-            to_post = lean
-        elif re.match(r"(?i)^CREATE\s+DATAVERSE", st):
-            to_post = lean
-        else:
-            to_post = f"USE {active}; {lean}"
-
-        try:
-            body = _post_statement(args.url, to_post)
-        except urllib.error.HTTPError as e:
-            try:
-                err_body = e.read().decode("utf-8")
-            except Exception:
-                err_body = str(e)
-            print("HTTP error:", e.code, err_body[:800], file=sys.stderr)
-            return 1
-        except Exception as ex:
-            print("Request failed:", ex, file=sys.stderr)
-            return 1
-        if body.get("status") != "success":
-            print("Statement failed:", to_post[:200], "...", file=sys.stderr)
-            print(body, file=sys.stderr)
-            return 1
-        n_post += 1
-        print("OK", n_post)
-    return 0
+    return run_sqlpp_text(
+        args.url,
+        raw,
+        dataverse=args.dataverse,
+        dataverse_from=args.dataverse_from,
+    )
 
 
 if __name__ == "__main__":

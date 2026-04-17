@@ -3,3 +3,4 @@ numpy
 ujson
 python-dateutil
 requests
+matplotlib

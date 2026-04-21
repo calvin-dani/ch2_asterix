@@ -144,6 +144,11 @@ def main() -> int:
         metavar="SEC",
         help="Per-statement HTTP timeout for DDL and load POSTs (0 = no limit; default: 600)",
     )
+    p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Per-statement logs for load_ddl (default: quiet summary from load_ddl only)",
+    )
     args = p.parse_args()
 
     if args.dry_run_all and args.dry_run:
@@ -189,6 +194,7 @@ def main() -> int:
             dataverse=args.dataverse,
             dataverse_from=args.dataverse_from,
             timeout=None if args.timeout == 0 else args.timeout,
+            verbose=args.verbose,
         )
         if rc != 0:
             return rc
@@ -242,6 +248,7 @@ def main() -> int:
         dataverse=args.dataverse,
         dataverse_from=args.dataverse_from,
         timeout=None if args.timeout == 0 else args.timeout,
+        verbose=args.verbose,
     )
     if rc == 0:
         _err("[3/3] Bulk-load step finished.")

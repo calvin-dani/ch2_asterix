@@ -122,11 +122,16 @@ def run_sqlpp_text(
     dataverse_from: str = "bench",
     timeout: float | None = 600.0,
     preview_chars: int = 240,
+    verbose: bool = False,
 ) -> int:
     """
     Post each statement from a SQL++ script to ``url`` (same rules as the ``--file`` path in main:
     strip ``/* */``, optional rewrite via ``--dataverse`` / ``dataverse_from``, split on ``;``,
     prepend ``USE`` per statement when required). Returns 0 on success, 1 on failure.
+
+    With ``verbose=True``, print each statement preview before POST and ``OK n`` after success.
+    With ``verbose=False`` (default), run quietly and print a one-line summary on success.
+    Errors are always printed.
     """
     raw = re.sub(r"/\*.*?\*/", "", raw, flags=re.DOTALL)
     if dataverse:
@@ -168,12 +173,17 @@ def run_sqlpp_text(
         else:
             to_post = f"USE {active}; {lean}"
 
-        preview = to_post if len(to_post) <= preview_chars else to_post[:preview_chars] + "..."
-        print(
-            f"[posting {n_post + 1}] {preview}",
-            file=sys.stderr,
-            flush=True,
-        )
+        if verbose:
+            preview = (
+                to_post
+                if len(to_post) <= preview_chars
+                else to_post[:preview_chars] + "..."
+            )
+            print(
+                f"[posting {n_post + 1}] {preview}",
+                file=sys.stderr,
+                flush=True,
+            )
         try:
             body = _post_statement(url, to_post, timeout=timeout)
         except urllib.error.HTTPError as e:
@@ -193,7 +203,13 @@ def run_sqlpp_text(
             print(body, file=sys.stderr)
             return 1
         n_post += 1
-        print("OK", n_post)
+        if verbose:
+            print("OK", n_post)
+    if not verbose:
+        print(
+            f"load_ddl: posted {n_post} statement(s) successfully.",
+            file=sys.stderr,
+        )
     return 0
 
 
@@ -236,6 +252,11 @@ def main() -> int:
         metavar="SEC",
         help="Per-statement HTTP timeout in seconds (0 = no limit; default: 600)",
     )
+    p.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Log each statement before POST and 'OK' after (default: quiet, one-line summary only)",
+    )
     args = p.parse_args()
 
     with open(args.file, encoding="utf-8") as f:
@@ -247,6 +268,7 @@ def main() -> int:
         dataverse=args.dataverse,
         dataverse_from=args.dataverse_from,
         timeout=to,
+        verbose=args.verbose,
     )
 
 

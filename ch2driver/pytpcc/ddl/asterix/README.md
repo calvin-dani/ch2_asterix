@@ -2,6 +2,11 @@
 
 DDL scripts use the **`.sqlpp`** extension (SQL++ for AsterixDB).
 
+## Source of truth
+
+- **Bench schema** (`CREATE TYPE`, **`CREATE DATASET`** with primary keys and storage options such as **`WITH { "storage-format":{"format":"column"} }`**, `CREATE INDEX`) is **hand-maintained** in [`ch2pp_bench.sqlpp`](ch2pp_bench.sqlpp). Nothing in `scripts/asterix/` generates or rewrites that file; edit it directly when changing types, datasets, or storage format.
+- **Load SQL** (`LOAD DATASET` / `COPY … FROM`) is **generated** by `scripts/asterix/generate_load_sqlpp.py` and `scripts/asterix/generate_json_dir_load_sqlpp.py` from your JSON tree. Those scripts only reference dataset **names** that must match `CREATE DATASET` in `ch2pp_bench.sqlpp`.
+
 ## Files
 
 | File | Purpose |

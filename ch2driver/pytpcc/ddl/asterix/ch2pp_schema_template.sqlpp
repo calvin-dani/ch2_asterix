@@ -10,10 +10,10 @@
 
 /*
 CREATE TYPE ItemType AS { i_id: bigint };
-CREATE DATASET item(ItemType) PRIMARY KEY i_id;
+CREATE DATASET item(ItemType) PRIMARY KEY i_id WITH { "storage-format":{"format":"column"}};
 
 CREATE TYPE WarehouseType AS { w_id: bigint };
-CREATE DATASET warehouse(WarehouseType) PRIMARY KEY w_id;
+CREATE DATASET warehouse(WarehouseType) PRIMARY KEY w_id WITH { "storage-format":{"format":"column"}};
 
 -- ... repeat for district, customer, stock, orders, neworder, history, supplier, nation, region
 

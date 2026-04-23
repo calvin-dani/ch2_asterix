@@ -26,6 +26,8 @@ DDL scripts use the **`.sqlpp`** extension (SQL++ for AsterixDB).
    Match `--output-dir` and **`--dataverse`** to your INI. Use `--nc-host` if needed for `localfs`. For non-`bench` names in custom SQL, use **`load_ddl.py --dataverse-from OLD --dataverse NEW`**.
 4. Run benchmark: `python tpcc.py asterix --config examples/asterix.ini --ch2pp --no-load ...`
 
+**Ad-hoc load timing:** For PK point-lookup or time-range `SELECT` batches against `/query/service`, use `scripts/asterix/create_point_queries_sqlpp.py` / `create_orders_time_range_queries_sqlpp.py` and `run_point_queries_benchmark.py` (see `ASTERIX.md`).
+
 ## Document counts
 
 Same as `BENCHMARKING.md` (per `W` warehouses): warehouse `W`, district `10*W`, history `30000*W`, etc.

@@ -98,6 +98,8 @@ python tpcc.py asterix --config asterix.ini --ch2pp --no-load --tclients 4 --acl
   --query-iterations 2 --warmup-query-iterations 1
 ```
 
+**Ad-hoc query timing (client HTTP round-trip, not `tpcc.py`):** PK point-lookup `.sqlpp`: `scripts/asterix/create_point_queries_sqlpp.py` then `run_point_queries_benchmark.py`. **Orders** time windows on `o_entry_d` (one `.sqlpp` and optional JSON per interval): `create_orders_time_range_queries_sqlpp.py`, then `run_point_queries_benchmark.py` per file, or `run_orders_time_range_batch.py` for the default 1/5/15/60 minute file set.
+
 ## Analytical queries
 
 Files live in `analytical_queries/asterix/` (`ch2pp.sql` and optional `ch2pp_non_optimized.sql`). They are derived from the Couchbase N1QL versions with mechanical edits (modulo operator, stripped index hints). Year-from-string fields use `get_year(datetime(...))` instead of N1QL `date_part_str`; offsets use `datetime(...) + duration("PnD")` instead of `date_add_str`. **Validate** on your AsterixDB version before relying on results.

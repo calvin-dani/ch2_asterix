@@ -63,6 +63,9 @@ def _infer_active_dataverse(raw: str, dataverse_cli: str) -> str:
 
 def _dataset_from_select(stmt: str) -> str | None:
     m = re.search(r"(?i)\bSELECT\s+\*\s+FROM\s+(\w+)", stmt)
+    if m:
+        return m.group(1).lower()
+    m = re.search(r"(?i)\bFROM\s+(\w+)", stmt)
     return m.group(1).lower() if m else None
 
 
@@ -225,7 +228,7 @@ def main() -> int:
     qph_sum = (n_exec * 3600.0 / sum_sec) if sum_sec > 0 else 0.0
 
     print("", file=sys.stderr)
-    print("=== Point query benchmark ===", file=sys.stderr)
+    print("=== SQL++ query benchmark ===", file=sys.stderr)
     print(f"File: {path}", file=sys.stderr)
     print(f"Successful queries: {n_exec}  Failed/aborted: {n_fail}", file=sys.stderr)
     print(f"Wall clock (sec): {wall_sec:.4f}", file=sys.stderr)

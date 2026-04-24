@@ -98,7 +98,7 @@ python tpcc.py asterix --config asterix.ini --ch2pp --no-load --tclients 4 --acl
   --query-iterations 2 --warmup-query-iterations 1
 ```
 
-**Ad-hoc query timing (client HTTP round-trip, not `tpcc.py`):** PK point-lookup `.sqlpp`: `scripts/asterix/create_point_queries_sqlpp.py` then `run_point_queries_benchmark.py`. **Orders** time windows on `o_entry_d` (one `.sqlpp` and optional JSON per interval): `create_orders_time_range_queries_sqlpp.py`, then `run_point_queries_benchmark.py` per file, or `run_orders_time_range_batch.py` for the default 1/5/15/60 minute file set.
+**Ad-hoc query timing (client HTTP round-trip, not `tpcc.py`):** PK point-lookup `.sqlpp`: `scripts/asterix/create_point_queries_sqlpp.py` then `run_point_queries_benchmark.py`. **Orders** time windows on `o_entry_d` (one `.sqlpp` and optional JSON per interval): `create_orders_time_range_queries_sqlpp.py`, then `run_point_queries_benchmark.py` per file, or `run_orders_time_range_batch.py` for the default 1/5/15/60 minute file set. **Constant micro-query** (e.g. `SELECT VALUE 1+1;` N times): `run_constant_query_benchmark.py`.
 
 ## Analytical queries
 

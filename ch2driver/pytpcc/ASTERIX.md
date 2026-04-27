@@ -2,6 +2,8 @@
 
 This driver (`asterix`) runs the same harness as Couchbase: data generation, optional JSON file output, load, transactional TPC-C mix, and 22 analytical queries.
 
+**Command cheat sheet (docgen, COPY load, `tpcc.py`, point/range/constant HTTP benchmarks):** [`ASTERIX_END_TO_END.md`](./ASTERIX_END_TO_END.md).
+
 ## Prerequisites
 
 - Python 3.9+ with dependencies from the repo root [`requirements.txt`](../../requirements.txt). Recommended:

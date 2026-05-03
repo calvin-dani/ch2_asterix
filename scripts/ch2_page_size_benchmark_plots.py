@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Plot CH2 analytical query response times across buffer/page sizes (32K-256K).
+Plot CH2 analytical query response times across buffer/page sizes (128K-512K).
 
 Reads one text file per page size (Q01..Q22 lines + optional summary footer),
 then writes:
@@ -10,15 +10,12 @@ then writes:
 
 Dependencies: matplotlib (see requirements.txt).
 
-Example (result files named 40G32Res, 40G64Res, 40G128Res under benchmark_plots/):
-  There is no 40G256Res file yet. Point 256K at the same file as 128K so the
-  fourth bar matches 128K until a 256K run exists (or use a symlink to 40G128Res).
+Example:
 
   python3 scripts/ch2_page_size_benchmark_plots.py \\
-    --input 32K=benchmark_plots/40G32Res \\
-    --input 64K=benchmark_plots/40G64Res \\
     --input 128K=benchmark_plots/40G128Res \\
-    --input 256K=benchmark_plots/40G128Res \\
+    --input 256K=benchmark_plots/40G256Res \\
+    --input 512K=benchmark_plots/40G512Res \\
     -o benchmark_plots/figures
 """
 
@@ -31,7 +28,7 @@ from typing import Dict, List, Optional, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
-PAGE_ORDER = ["32K", "64K", "128K", "256K"]
+PAGE_ORDER = ["128K", "256K", "512K"]
 N_QUERIES = 22
 
 
@@ -266,8 +263,8 @@ def plot_summary(
 
 def load_inputs(inputs: List[str]) -> Dict[str, List[float]]:
     """
-    Each item is 'LABEL=PATH' (e.g. 32K=./runs/32k.txt).
-    Labels must be exactly: 32K, 64K, 128K, 256K.
+    Each item is 'LABEL=PATH' (e.g. 128K=./runs/128k.txt).
+    Labels must be exactly: 128K, 256K, 512K.
     """
     if len(inputs) != len(PAGE_ORDER):
         raise SystemExit(
@@ -305,7 +302,7 @@ def load_inputs(inputs: List[str]) -> Dict[str, List[float]]:
 
 
 def load_dir(benchmark_dir: Path) -> Dict[str, List[float]]:
-    """Load 32K.txt, 64K.txt, 128K.txt, 256K.txt from a directory."""
+    """Load 128K.txt, 256K.txt, 512K.txt from a directory."""
     data: Dict[str, List[float]] = {}
     for lab in PAGE_ORDER:
         candidates = [
@@ -339,14 +336,14 @@ def main() -> None:
         "--input",
         action="append",
         metavar="LABEL=PATH",
-        help="Repeat four times, e.g. --input 32K=path/32k.txt "
-        "(labels: 32K, 64K, 128K, 256K)",
+        help="Repeat three times, e.g. --input 128K=path/128k.txt "
+        "(labels: 128K, 256K, 512K)",
     )
     parser.add_argument(
         "--benchmark-dir",
         type=Path,
         default=None,
-        help="Directory containing 32K.txt, 64K.txt, 128K.txt, 256K.txt",
+        help="Directory containing 128K.txt, 256K.txt, 512K.txt",
     )
     parser.add_argument(
         "--combined-grid",

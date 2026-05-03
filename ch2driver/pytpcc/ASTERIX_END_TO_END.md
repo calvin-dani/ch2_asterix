@@ -121,6 +121,13 @@ python scripts/asterix/create_point_queries_sqlpp.py -D mydv --min 1 --max 1000 
   --out /tmp/points_all.sqlpp
 ```
 
+Random PKs (uniform over built-in ranges, `--count` per dataset, skips `nation` / `history` and small Cartesian spaces; see `scripts/asterix/POINT_QUERY_DATASET_DENSITY.md`):
+
+```bash
+python scripts/asterix/create_point_queries_sqlpp.py -D mydv --mode random \
+  --count 10000 --seed 42 --out /tmp/points_rand.sqlpp
+```
+
 ### 4b. PK point lookups — run
 
 ```bash

@@ -12,6 +12,11 @@ Metrics (successful queries only for geometric mean unless all fail):
 - **Geometric mean per dataset**: inferred from ``FROM <name>`` on each ``SELECT``.
 - **Queries per hour**: ``N * 3600 / T`` using wall time and using sum-of-times (both reported).
 
+With ``--json-summary``, the file also includes average **result row count** per successful query
+(``len(results)``, with ``metrics.resultCount`` as fallback if the list is absent) and average
+**result payload size** in bytes when Asterix returns ``metrics.resultSize`` (engine-reported; see
+Asterix ``/query/service`` docs), overall and per dataset.
+
 Optional: ``--print-query-response`` prints the first successful response JSON (keys + pretty body) to stderr for exploring the API payload.
 
 Example::
@@ -69,6 +74,31 @@ def _dataset_from_select(stmt: str) -> str | None:
         return m.group(1).lower()
     m = re.search(r"(?i)\bFROM\s+(\w+)", stmt)
     return m.group(1).lower() if m else None
+
+
+def _result_row_count_and_size_bytes(body: dict) -> tuple[int, int | None]:
+    """Row count from ``results`` (prefer length); ``metrics.resultSize`` when int-like (bytes)."""
+    results = body.get("results")
+    n_rows = len(results) if isinstance(results, list) else 0
+    m_raw = body.get("metrics")
+    m: dict = m_raw if isinstance(m_raw, dict) else {}
+    if n_rows == 0:
+        rc = m.get("resultCount")
+        if isinstance(rc, int):
+            n_rows = rc
+        elif isinstance(rc, str) and rc.isdigit():
+            n_rows = int(rc)
+    size_b: int | None = None
+    rs = m.get("resultSize")
+    if isinstance(rs, int):
+        size_b = rs
+    elif isinstance(rs, str) and rs.isdigit():
+        size_b = int(rs)
+    return n_rows, size_b
+
+
+def _mean_int_list(values: list[int]) -> float | None:
+    return sum(values) / len(values) if values else None
 
 
 def geometric_mean(values: list[float]) -> float | None:
@@ -148,7 +178,7 @@ def main() -> int:
         "--json-summary",
         type=Path,
         default=None,
-        help="Write machine-readable summary JSON to this path",
+        help="Write summary JSON (timing + avg result rows / resultSize when present)",
     )
     p.add_argument(
         "--quiet",
@@ -190,6 +220,10 @@ def main() -> int:
     active = _infer_active_dataverse(raw, args.dataverse)
     times_all: list[float] = []
     times_by_ds: dict[str, list[float]] = defaultdict(list)
+    rows_all: list[int] = []
+    sizes_all: list[int] = []
+    rows_by_ds: dict[str, list[int]] = defaultdict(list)
+    sizes_by_ds: dict[str, list[int]] = defaultdict(list)
     n_ok = 0
     n_fail = 0
     printed_response = False
@@ -248,8 +282,15 @@ def main() -> int:
 
         n_ok += 1
         times_all.append(elapsed)
+        n_rows, sz = _result_row_count_and_size_bytes(body if isinstance(body, dict) else {})
+        rows_all.append(n_rows)
         if ds:
+            rows_by_ds[ds].append(n_rows)
             times_by_ds[ds].append(elapsed)
+        if sz is not None:
+            sizes_all.append(sz)
+            if ds:
+                sizes_by_ds[ds].append(sz)
 
         if args.print_query_response and not printed_response:
             printed_response = True
@@ -288,6 +329,20 @@ def main() -> int:
         print("Overall geometric mean: n/a", file=sys.stderr)
     print(f"Queries per hour (wall): {qph_wall:.2f}", file=sys.stderr)
     print(f"Queries per hour (sum of times): {qph_sum:.2f}", file=sys.stderr)
+    if n_exec and rows_all:
+        avg_rows = sum(rows_all) / len(rows_all)
+        if sizes_all:
+            avg_sz = sum(sizes_all) / len(sizes_all)
+            sz_line = (
+                f"avg_result_size_bytes={avg_sz:.2f} "
+                f"(from {len(sizes_all)}/{n_exec} responses with metrics.resultSize)"
+            )
+        else:
+            sz_line = "avg_result_size_bytes=n/a (no metrics.resultSize in responses)"
+        print("", file=sys.stderr)
+        print("Result payload (successful queries, mean per query):", file=sys.stderr)
+        print(f"  avg_result_row_count={avg_rows:.6f}", file=sys.stderr)
+        print(f"  {sz_line}", file=sys.stderr)
     print("", file=sys.stderr)
     print("Per-dataset (successful queries):", file=sys.stderr)
     for name in sorted(times_by_ds.keys()):
@@ -298,8 +353,17 @@ def main() -> int:
             gm_s = f"{gm:.6f}"
         else:
             gm_s = "n/a"
+        rr = rows_by_ds.get(name, [])
+        avg_r_s = f"{sum(rr) / len(rr):.6f}" if rr else "n/a"
+        ss = sizes_by_ds.get(name, [])
+        if ss:
+            avg_sz_ds = sum(ss) / len(ss)
+            sz_ds_s = f"{avg_sz_ds:.2f} ({len(ss)}/{len(tt)} with resultSize)"
+        else:
+            sz_ds_s = "n/a"
         print(
-            f"  {name}: count={len(tt)}  sum_sec={s:.4f}  geom_mean_sec={gm_s}",
+            f"  {name}: count={len(tt)}  sum_sec={s:.4f}  geom_mean_sec={gm_s}  "
+            f"avg_result_rows={avg_r_s}  avg_result_size_bytes={sz_ds_s}",
             file=sys.stderr,
         )
 
@@ -312,11 +376,21 @@ def main() -> int:
         "geometric_mean_sec": gm_all,
         "queries_per_hour_wall": qph_wall,
         "queries_per_hour_sum_times": qph_sum,
+        "avg_result_row_count": (sum(rows_all) / n_exec) if n_exec else None,
+        "avg_result_size_bytes": _mean_int_list(sizes_all),
+        "queries_with_result_size": len(sizes_all),
         "per_dataset": {
             name: {
                 "count": len(tt),
                 "sum_sec": sum(tt),
                 "geometric_mean_sec": geometric_mean(tt),
+                "avg_result_row_count": (
+                    (sum(rows_by_ds[name]) / len(rows_by_ds[name]))
+                    if rows_by_ds.get(name)
+                    else None
+                ),
+                "avg_result_size_bytes": _mean_int_list(sizes_by_ds.get(name, [])),
+                "queries_with_result_size": len(sizes_by_ds.get(name, [])),
             }
             for name, tt in times_by_ds.items()
         },

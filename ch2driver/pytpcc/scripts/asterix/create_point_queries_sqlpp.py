@@ -8,10 +8,12 @@ Primary keys match ``ddl/asterix/ch2pp_bench.sqlpp``.
 Modes:
 
 - **sweep** (default): legacy ``--min``..``--max`` loop with fixed ``--w-id`` / ``--d-id``.
-- **random**: ``--count`` distinct uniform random PK tuples **per dataset** over built-in
-  bounds (see ``DEFAULT_RANDOM_BOUNDS`` in source). Requires ``--seed``. Automatically skips
-  **nation** and **history** (non-dense / uuid — see ``POINT_QUERY_DATASET_DENSITY.md``).
-  Any dataset whose Cartesian key-space size is **&lt; count** is skipped.
+- **random**: ``--count`` queries **per dataset** over built-in bounds (see
+  ``DEFAULT_RANDOM_BOUNDS``). Requires ``--seed``. **Orders** uses **independent**
+  ``randint`` per PK column via ``random_orders_pk_tuple`` / ``orders_point_query_sql``;
+  other tables use **distinct** Cartesian samples. Skips **nation** and **history**
+  (see ``POINT_QUERY_DATASET_DENSITY.md``). Non-orders datasets are skipped if Cartesian
+  size **&lt; count**.
 
 Examples::
 
@@ -32,6 +34,29 @@ from pathlib import Path
 
 def _district_d_id(k: int) -> int:
     return ((k - 1) % 10) + 1
+
+
+def random_orders_pk_tuple(
+    rng: random.Random,
+    o_w_id_lo: int,
+    o_w_id_hi: int,
+    o_d_id_lo: int,
+    o_d_id_hi: int,
+    o_id_lo: int,
+    o_id_hi: int,
+) -> tuple[int, int, int]:
+    ow = rng.randint(o_w_id_lo, o_w_id_hi)
+    od = rng.randint(o_d_id_lo, o_d_id_hi)
+    oid = rng.randint(o_id_lo, o_id_hi)
+    return ow, od, oid
+
+
+def orders_point_query_sql(o_w_id: int, o_d_id: int, o_id: int) -> str:
+    """Single ``SELECT`` for ``orders`` PK equality (no ``USE`` line)."""
+    return (
+        "SELECT * FROM orders WHERE "
+        f"o_w_id = {o_w_id} AND o_d_id = {o_d_id} AND o_id = {o_id};"
+    )
 
 
 def _cartesian_size(ranges: list[tuple[int, int]]) -> int:
@@ -77,6 +102,27 @@ def _random_select_lines(
         cols = [c for c, _ in spec]
         ranges = [r for _, r in spec]
         space = _cartesian_size(ranges)
+        if space < 1:
+            notes.append(f"skip {ds}: empty or invalid PK range(s)")
+            continue
+
+        if ds == "orders":
+            ow_lo, ow_hi = spec[0][1]
+            od_lo, od_hi = spec[1][1]
+            oid_lo, oid_hi = spec[2][1]
+            for _ in range(count):
+                ow, od, oid = random_orders_pk_tuple(
+                    rng,
+                    ow_lo,
+                    ow_hi,
+                    od_lo,
+                    od_hi,
+                    oid_lo,
+                    oid_hi,
+                )
+                lines.append(orders_point_query_sql(ow, od, oid))
+            continue
+
         if space < count:
             notes.append(
                 f"skip {ds}: key space size {space} < --count {count}"
@@ -200,7 +246,7 @@ def main() -> int:
         "--mode",
         choices=("sweep", "random"),
         default="sweep",
-        help="sweep: legacy --min/--max; random: sample --count distinct PKs per dataset",
+        help="sweep: legacy --min/--max; random: sample PKs per dataset (orders: per-column randint)",
     )
     p.add_argument(
         "--count",

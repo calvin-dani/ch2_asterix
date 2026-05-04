@@ -12,6 +12,8 @@ Metrics (successful queries only for geometric mean unless all fail):
 - **Geometric mean per dataset**: inferred from ``FROM <name>`` on each ``SELECT``.
 - **Queries per hour**: ``N * 3600 / T`` using wall time and using sum-of-times (both reported).
 
+Optional: ``--print-query-response`` prints the first successful response JSON (keys + pretty body) to stderr for exploring the API payload.
+
 Example::
 
   python scripts/asterix/create_point_queries_sqlpp.py -D bench --min 1 --max 100 \\
@@ -78,6 +80,29 @@ def geometric_mean(values: list[float]) -> float | None:
     return math.exp(sum(math.log(v) for v in pos) / len(pos))
 
 
+def _print_decoded_query_response(body: object, *, max_chars: int) -> None:
+    """Pretty-print Asterix ``/query/service`` JSON once for inspection (stderr)."""
+    print("=== /query/service response (decoded) ===", file=sys.stderr)
+    if isinstance(body, dict):
+        print(f"top-level keys: {list(body.keys())}", file=sys.stderr)
+    else:
+        print(f"body type: {type(body).__name__}", file=sys.stderr)
+    try:
+        text = json.dumps(body, indent=2, default=str, ensure_ascii=False)
+    except TypeError:
+        text = repr(body)
+    if len(text) > max_chars:
+        print(
+            text[:max_chars]
+            + f"\n... ({len(text) - max_chars} more chars omitted; "
+            "raise --print-query-response-chars)",
+            file=sys.stderr,
+        )
+    else:
+        print(text, file=sys.stderr)
+    print("=== end response decode ===", file=sys.stderr)
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description="Benchmark Asterix point-query SELECTs from a .sqlpp file",
@@ -130,6 +155,18 @@ def main() -> int:
         action="store_true",
         help="Less stderr output (still prints final summary)",
     )
+    p.add_argument(
+        "--print-query-response",
+        action="store_true",
+        help="After the first successful SELECT, print decoded JSON (keys + pretty body) to stderr",
+    )
+    p.add_argument(
+        "--print-query-response-chars",
+        type=int,
+        default=20_000,
+        metavar="N",
+        help="Max chars of pretty-printed JSON for --print-query-response (default: 20000)",
+    )
     args = p.parse_args()
 
     path = args.file.expanduser().resolve()
@@ -155,6 +192,7 @@ def main() -> int:
     times_by_ds: dict[str, list[float]] = defaultdict(list)
     n_ok = 0
     n_fail = 0
+    printed_response = False
     to_secs = None if args.timeout == 0 else args.timeout
 
     wall0 = time.perf_counter()
@@ -212,6 +250,17 @@ def main() -> int:
         times_all.append(elapsed)
         if ds:
             times_by_ds[ds].append(elapsed)
+
+        if args.print_query_response and not printed_response:
+            printed_response = True
+            prev = to_post if len(to_post) <= 400 else to_post[:400] + "..."
+            print(
+                f"First successful statement (elapsed {elapsed:.4f}s): {prev}",
+                file=sys.stderr,
+            )
+            _print_decoded_query_response(
+                body, max_chars=max(500, args.print_query_response_chars)
+            )
 
         if not args.quiet and n_ok % 500 == 0:
             print(f"... {n_ok} queries OK", file=sys.stderr, flush=True)

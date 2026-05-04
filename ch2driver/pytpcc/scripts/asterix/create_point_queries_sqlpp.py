@@ -54,8 +54,15 @@ def random_orders_pk_tuple(
 def orders_point_query_sql(o_w_id: int, o_d_id: int, o_id: int) -> str:
     """Single ``SELECT`` for ``orders`` PK equality (no ``USE`` line)."""
     return (
-        "SELECT * FROM orders WHERE "
-        f"o_w_id = {o_w_id} AND o_d_id = {o_d_id} AND o_id = {o_id};"
+        "SELECT\n"
+        "  o.o_w_id AS warehouse_id,\n"
+        "  o.o_d_id AS district_id,\n"
+        "  o.o_id AS id,\n"
+        "  o.o_c_id AS customer_id,\n"
+        "  o.o_entry_d AS entry_d,\n"
+        "  o.o_ol_cnt AS order_count\n"
+        "FROM orders o\n"
+        f"WHERE o_w_id = {o_w_id} AND o_d_id = {o_d_id} AND o_id = {o_id};"
     )
 
 
@@ -197,8 +204,15 @@ def generate_lines(
             )
         if "orders" in datasets:
             lines.append(
-                "SELECT * FROM orders WHERE "
-                f"o_w_id = {w_id} AND o_d_id = {d_id} AND o_id = {k};"
+                "SELECT\n"
+                "  o.o_w_id AS warehouse_id,\n"
+                "  o.o_d_id AS district_id,\n"
+                "  o.o_id AS id,\n"
+                "  o.o_c_id AS customer_id,\n"
+                "  o.o_entry_d AS entry_d,\n"
+                "  o.o_ol_cnt AS order_count\n"
+                "FROM orders o\n"
+                f"WHERE o_w_id = {w_id} AND o_d_id = {d_id} AND o_id = {k};"
             )
         if "neworder" in datasets:
             lines.append(

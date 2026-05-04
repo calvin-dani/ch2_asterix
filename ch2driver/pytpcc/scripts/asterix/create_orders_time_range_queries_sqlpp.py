@@ -4,7 +4,13 @@
 Each query::
 
   USE <dataverse>;
-  SELECT o.o_id AS id, o.o_entry_d AS entry
+  SELECT
+    o.o_w_id AS warehouse_id,
+    o.o_d_id AS district_id,
+    o.o_id AS id,
+    o.o_c_id AS customer_id,
+    o.o_entry_d AS entry_d,
+    o.o_ol_cnt AS order_count
   FROM orders o
   WHERE o.o_entry_d > \"<low>\" AND o.o_entry_d < \"<high>\";
 
@@ -36,6 +42,21 @@ _TS_FMT = "%Y-%m-%d %H:%M:%S"
 _EPS = timedelta(seconds=1)
 _DEFAULT_MIN = "2014-01-01 00:00:07"
 _DEFAULT_MAX = "2020-08-01 23:59:57"
+
+
+def orders_time_range_query_sql(low_ts: str, high_ts: str) -> str:
+    """Open interval on ``o_entry_d`` (no ``USE`` line); same projections as point queries."""
+    return (
+        "SELECT\n"
+        "  o.o_w_id AS warehouse_id,\n"
+        "  o.o_d_id AS district_id,\n"
+        "  o.o_id AS id,\n"
+        "  o.o_c_id AS customer_id,\n"
+        "  o.o_entry_d AS entry_d,\n"
+        "  o.o_ol_cnt AS order_count\n"
+        "FROM orders o\n"
+        f'WHERE o.o_entry_d > "{low_ts}" AND o.o_entry_d < "{high_ts}";'
+    )
 
 
 def _parse_ts(s: str) -> datetime:
@@ -181,22 +202,21 @@ def main() -> int:
         lines: list[str] = [
             f"-- o_entry_d range queries ({im} min window) —"
             f" create_orders_time_range_queries_sqlpp.py",
+            "",
         ]
         try:
+            blocks: list[str] = []
             for _ in range(c):
                 low = _random_low(min_ts, max_ts, itd, rng)
                 high = low + itd
                 a = _format_ts(low)
                 b = _format_ts(high)
-                lines.append(
-                    f'USE {dv}; SELECT o.o_id AS id, o.o_entry_d AS entry FROM orders o '
-                    f'WHERE o.o_entry_d > "{a}" AND o.o_entry_d < "{b}";'
-                )
+                blocks.append(f"USE {dv};\n{orders_time_range_query_sql(a, b)}")
         except ValueError as e:
             print(f"error (interval {im} min): {e}", file=sys.stderr)
             return 1
 
-        text = "\n".join(lines) + "\n"
+        text = "\n".join(lines) + "\n\n".join(blocks) + "\n"
         path.write_text(text, encoding="utf-8")
         print(
             f"Wrote {path} ({c} statements, {im} min window)",

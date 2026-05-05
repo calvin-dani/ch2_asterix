@@ -19,6 +19,8 @@ Asterix ``/query/service`` docs), overall and per dataset.
 
 Optional: ``--print-query-response`` prints the first successful response JSON (keys + pretty body) to stderr for exploring the API payload.
 
+``--profile-timings-one`` posts only the first ``SELECT`` with ``profile=timings`` and ``optimized-logical-plan=true``, prints the **full** JSON response on stdout, and exits (see ``load_ddl.profile_timings_query_form_params``).
+
 Example::
 
   python scripts/asterix/create_point_queries_sqlpp.py -D bench --min 1 --max 100 \\
@@ -197,6 +199,11 @@ def main() -> int:
         metavar="N",
         help="Max chars of pretty-printed JSON for --print-query-response (default: 20000)",
     )
+    p.add_argument(
+        "--profile-timings-one",
+        action="store_true",
+        help="Run only the first SELECT with profile=timings + optimized-logical-plan; print full JSON on stdout and exit",
+    )
     args = p.parse_args()
 
     path = args.file.expanduser().resolve()
@@ -253,8 +260,31 @@ def main() -> int:
 
         t0 = time.perf_counter()
         try:
-            body = load_ddl._post_statement(args.url, to_post, timeout=to_secs)
+            body = load_ddl._post_statement(
+                args.url,
+                to_post,
+                timeout=to_secs,
+                extra_form=(
+                    load_ddl.profile_timings_query_form_params()
+                    if args.profile_timings_one
+                    else None
+                ),
+            )
         except urllib.error.HTTPError as e:
+            if args.profile_timings_one:
+                try:
+                    err = e.read().decode("utf-8")
+                    try:
+                        obj = json.loads(err)
+                        print(
+                            json.dumps(obj, indent=2, default=str),
+                            flush=True,
+                        )
+                    except json.JSONDecodeError:
+                        print(err, flush=True)
+                except Exception:
+                    print(str(e), flush=True)
+                return 1
             n_fail += 1
             try:
                 err = e.read().decode("utf-8")
@@ -265,11 +295,29 @@ def main() -> int:
                 return 1
             continue
         except Exception as ex:
+            if args.profile_timings_one:
+                print(
+                    json.dumps(
+                        {"status": "fatal", "errors": [str(ex)]},
+                        indent=2,
+                        default=str,
+                    ),
+                    flush=True,
+                )
+                return 1
             n_fail += 1
             print(f"Request failed: {ex}", file=sys.stderr)
             if not args.continue_on_error:
                 return 1
             continue
+
+        if args.profile_timings_one:
+            print(json.dumps(body, indent=2, default=str), flush=True)
+            return (
+                0
+                if isinstance(body, dict) and body.get("status") == "success"
+                else 1
+            )
 
         elapsed = time.perf_counter() - t0
 
@@ -308,6 +356,13 @@ def main() -> int:
 
         if args.max_queries and n_ok >= args.max_queries:
             break
+
+    if args.profile_timings_one:
+        print(
+            "error: --profile-timings-one: no executable SELECT in file (after USE/DDL skips)",
+            file=sys.stderr,
+        )
+        return 1
 
     wall1 = time.perf_counter()
     wall_sec = wall1 - wall0

@@ -21,29 +21,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 LABEL_ORDER = ["128K", "256K", "512K"]
+ROW_COUNT_DENOM = 15_000_000.0
 GEOMEAN_RE = re.compile(
     r"Overall\s+geometric\s+mean\s+time\s+\(sec\)\s*:\s*([\d.]+)",
     re.IGNORECASE,
 )
+ROWCOUNT_RE = re.compile(
+    r"avg_result_row_count\s*=\s*([\d.]+)",
+    re.IGNORECASE,
+)
 
 
-def parse_geomean(path: Path) -> float:
+def parse_metrics(path: Path) -> Dict[str, float]:
     text = path.read_text(encoding="utf-8", errors="replace")
-    match = GEOMEAN_RE.search(text)
-    if not match:
+    geomean_match = GEOMEAN_RE.search(text)
+    rowcount_match = ROWCOUNT_RE.search(text)
+
+    if not geomean_match:
         raise SystemExit(
             f"Could not find 'Overall geometric mean time (sec): ...' in {path}"
         )
-    return float(match.group(1))
+    if not rowcount_match:
+        raise SystemExit(f"Could not find 'avg_result_row_count=...' in {path}")
+
+    return {
+        "geomean_sec": float(geomean_match.group(1)),
+        "avg_result_row_count": float(rowcount_match.group(1)),
+    }
 
 
-def load_inputs(inputs: List[str]) -> Dict[str, float]:
+def load_inputs(inputs: List[str]) -> Dict[str, Dict[str, float]]:
     if len(inputs) != len(LABEL_ORDER):
         raise SystemExit(
             f"Expected {len(LABEL_ORDER)} --input entries, got {len(inputs)}"
         )
 
-    data: Dict[str, float] = {}
+    data: Dict[str, Dict[str, float]] = {}
     for item in inputs:
         if "=" not in item:
             raise SystemExit(f"Invalid --input (use LABEL=PATH): {item!r}")
@@ -58,7 +71,7 @@ def load_inputs(inputs: List[str]) -> Dict[str, float]:
         if not path.is_file():
             raise SystemExit(f"Input file not found: {path}")
 
-        data[label] = parse_geomean(path)
+        data[label] = parse_metrics(path)
 
     for label in LABEL_ORDER:
         if label not in data:
@@ -68,7 +81,12 @@ def load_inputs(inputs: List[str]) -> Dict[str, float]:
 
 def plot_average_time(data: Dict[str, float], out_path: Path) -> None:
     labels = LABEL_ORDER
-    values = [data[label] for label in labels]
+    values = [data[label]["geomean_sec"] for label in labels]
+    labels_with_pct = []
+    for label in labels:
+        row_count = data[label]["avg_result_row_count"]
+        pct = (row_count / ROW_COUNT_DENOM) * 100.0
+        labels_with_pct.append(f"{label}\n({pct:.6f}%)")
     x = np.arange(len(labels))
 
     fig, ax = plt.subplots(figsize=(7.2, 4.6))
@@ -84,9 +102,9 @@ def plot_average_time(data: Dict[str, float], out_path: Path) -> None:
         )
 
     ax.set_xticks(x)
-    ax.set_xticklabels(labels)
+    ax.set_xticklabels(labels_with_pct)
     ax.set_title("Point Query Mean")
-    ax.set_xlabel("Page size and frame size")
+    ax.set_xlabel("Page size and frame size (row_count / 15,000,000 as %)")
     ax.set_ylabel("Point Query Mean (s)")
     ymax = max(values) * 1.2 if values else 1.0
     ax.set_ylim(0, ymax)
@@ -123,7 +141,10 @@ def main() -> None:
     plot_average_time(data, args.out.resolve())
     print(f"Wrote chart to: {args.out.resolve()}")
     for label in LABEL_ORDER:
-        print(f"  {label}: {data[label]:.6f} s")
+        geomean = data[label]["geomean_sec"]
+        row_count = data[label]["avg_result_row_count"]
+        pct = (row_count / ROW_COUNT_DENOM) * 100.0
+        print(f"  {label}: geomean={geomean:.6f} s  row_count={row_count:.6f} ({pct:.6f}%)")
 
 
 if __name__ == "__main__":

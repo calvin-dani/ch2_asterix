@@ -106,12 +106,31 @@ def _apply_dataverse(raw: str, target: str, source: str) -> str:
     return raw
 
 
-def _post_statement(url: str, statement: str, timeout: float | None = 600.0):
-    data = urllib.parse.urlencode({"statement": statement}).encode("utf-8")
+def _post_statement(
+    url: str,
+    statement: str,
+    timeout: float | None = 600.0,
+    *,
+    extra_form: dict[str, str | bool] | None = None,
+):
+    """POST ``statement`` as form field ``statement``. Optional ``extra_form`` merged into the body."""
+    fields: dict[str, str] = {"statement": statement}
+    if extra_form:
+        for key, val in extra_form.items():
+            if isinstance(val, bool):
+                fields[key] = "true" if val else "false"
+            else:
+                fields[key] = str(val)
+    data = urllib.parse.urlencode(fields).encode("utf-8")
     req = urllib.request.Request(url, data=data, method="POST")
     # timeout None = wait indefinitely (for very large LOAD/COPY jobs)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         return json.loads(resp.read().decode("utf-8"))
+
+
+def profile_timings_query_form_params() -> dict[str, str | bool]:
+    """Asterix ``/query/service`` optional form fields for timing + logical plan in responses."""
+    return {"profile": "timings", "optimized-logical-plan": True}
 
 
 def run_sqlpp_text(

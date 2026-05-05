@@ -1,5 +1,6 @@
-Wall clock (sec): 284.7625
-Sum of query times (sec): 284.5852
-Overall geometric mean time (sec): 0.026725
-Queries per hour (wall): 126421.14
-Queries per hour (sum of times): 126499.89
+Wall clock (sec): 93.5594
+Sum of query times (sec): 93.2658
+Overall geometric mean time (sec): 0.009217
+Queries per hour (wall): 384782.15
+Queries per hour (sum of times): 385993.74
+avg_result_row_count=1.000000

@@ -8,6 +8,10 @@ Example (from ``ch2driver/pytpcc``)::
 
   python scripts/asterix/run_select_value_one_benchmark.py -D mydv
   python scripts/asterix/run_select_value_one_benchmark.py -D mydv -n 50000 --json-summary /tmp/mean.json
+
+Profile (single request, ``profile=timings`` + ``optimized-logical-plan``; see ``load_ddl.profile_timings_query_form_params``)::
+
+  python scripts/asterix/run_select_value_one_benchmark.py -D mydv --profile-out /tmp/select_value_one_profile.json
 """
 
 from __future__ import annotations
@@ -28,6 +32,73 @@ import load_ddl  # noqa: E402
 _DEFAULT_URL = "http://127.0.0.1:19002/query/service"
 _DEFAULT_COUNT = 10_000
 _STATEMENT = "SELECT VALUE 1;"
+
+
+def _run_profile_timings_once(args: argparse.Namespace, *, to_post: str) -> int:
+    """POST once with profiler form fields; write envelope JSON to ``args.profile_out``."""
+    to_secs = None if args.timeout == 0 else args.timeout
+    profile_form = load_ddl.profile_timings_query_form_params()
+    path = args.profile_out.expanduser().resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    t0 = time.perf_counter()
+    try:
+        body = load_ddl._post_statement(
+            args.url,
+            to_post,
+            timeout=to_secs,
+            extra_form=profile_form,
+        )
+    except urllib.error.HTTPError as e:
+        elapsed = time.perf_counter() - t0
+        err_obj: object = None
+        try:
+            err_raw = e.read().decode("utf-8")
+            try:
+                err_obj = json.loads(err_raw)
+            except json.JSONDecodeError:
+                err_obj = err_raw
+        except Exception:
+            err_obj = str(e)
+        envelope = {
+            "mode": "profile_timings_once",
+            "url": args.url,
+            "posted_body": to_post,
+            "profile_form_fields": dict(profile_form),
+            "elapsed_sec": elapsed,
+            "http_status": e.code,
+            "response": err_obj,
+        }
+        path.write_text(json.dumps(envelope, indent=2, default=str) + "\n", encoding="utf-8")
+        print(f"Wrote profile error envelope: {path}", file=sys.stderr)
+        return 1
+    except Exception as ex:
+        elapsed = time.perf_counter() - t0
+        envelope = {
+            "mode": "profile_timings_once",
+            "url": args.url,
+            "posted_body": to_post,
+            "profile_form_fields": dict(profile_form),
+            "elapsed_sec": elapsed,
+            "response": {"status": "fatal", "errors": [str(ex)]},
+        }
+        path.write_text(json.dumps(envelope, indent=2, default=str) + "\n", encoding="utf-8")
+        print(f"Wrote profile exception envelope: {path}", file=sys.stderr)
+        return 1
+
+    elapsed = time.perf_counter() - t0
+    envelope = {
+        "mode": "profile_timings_once",
+        "url": args.url,
+        "posted_body": to_post,
+        "profile_form_fields": dict(profile_form),
+        "elapsed_sec": elapsed,
+        "response": body,
+    }
+    path.write_text(json.dumps(envelope, indent=2, default=str) + "\n", encoding="utf-8")
+    ok = isinstance(body, dict) and body.get("status") == "success"
+    print(f"Wrote profile response: {path} (elapsed {elapsed:.6f}s)", file=sys.stderr)
+    return 0 if ok else 1
 
 
 def main() -> int:
@@ -75,14 +146,26 @@ def main() -> int:
         action="store_true",
         help="Keep going after a failed request (default: exit on first failure)",
     )
+    p.add_argument(
+        "--profile-out",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help="Single request with profile=timings + optimized-logical-plan; write envelope JSON "
+        "to FILE and exit (skips the -n loop)",
+    )
     args = p.parse_args()
+
+    dv = args.dataverse.strip() or "bench"
+    to_post = f"USE {dv}; {_STATEMENT}"
+
+    if args.profile_out:
+        return _run_profile_timings_once(args, to_post=to_post)
 
     if args.count < 1:
         print("error: -n / --count must be >= 1", file=sys.stderr)
         return 1
 
-    dv = args.dataverse.strip() or "bench"
-    to_post = f"USE {dv}; {_STATEMENT}"
     to_secs = None if args.timeout == 0 else args.timeout
     n_fail = 0
     times: list[float] = []
